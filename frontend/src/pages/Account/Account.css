@@ -1,0 +1,61 @@
+.account-page__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 20px;
+}
+
+.account-page__profile,
+.account-page__actions {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 22px;
+  background: #fff;
+}
+
+.account-page__avatar {
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--color-grape);
+  background: color-mix(in srgb, var(--color-lime) 32%, white);
+}
+
+.account-page__profile h2 {
+  margin: 18px 0 8px;
+  color: var(--color-grape);
+}
+
+.account-page__profile p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: var(--color-muted-text);
+}
+
+.account-page__actions {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.account-page__actions a {
+  min-height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  color: var(--color-grape);
+  font-weight: 900;
+  background: var(--color-soft);
+}
+
+@media (max-width: 760px) {
+  .account-page__grid {
+    grid-template-columns: 1fr;
+  }
+}
+

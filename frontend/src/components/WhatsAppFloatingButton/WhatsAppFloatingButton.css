@@ -1,0 +1,25 @@
+.whatsapp-float {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 50;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: #25d366;
+  box-shadow: 0 14px 34px rgba(37, 211, 102, 0.32);
+}
+
+.whatsapp-float:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 720px) {
+  .whatsapp-float {
+    right: 16px;
+    bottom: 16px;
+  }
+}

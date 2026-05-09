@@ -1,0 +1,128 @@
+.product-card {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(81, 10, 80, 0.06);
+}
+
+.product-card__visual {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--color-soft);
+}
+
+.product-card__visual::before,
+.product-card__visual::after {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  border-radius: 42% 42% 22% 22%;
+  background: rgba(255, 255, 255, 0.3);
+  border: 8px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 22px 40px rgba(81, 10, 80, 0.16);
+}
+
+.product-card__visual:has(img)::before,
+.product-card__visual:has(img)::after {
+  content: none;
+}
+
+.product-card__visual img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.product-card__visual::after {
+  inset: 34% 26% 12%;
+  border-radius: 26px 26px 64px 64px;
+  transform: rotate(7deg);
+}
+
+.product-card__visual--grape {
+  background: linear-gradient(145deg, #510A50, #EC0FD3);
+}
+
+.product-card__visual--lime {
+  background: linear-gradient(145deg, #ACCD46, #fff4a8);
+}
+
+.product-card__visual--pink {
+  background: linear-gradient(145deg, #EC0FD3, #510A50);
+}
+
+.product-card__visual--ink {
+  background: linear-gradient(145deg, #211827, #510A50);
+}
+
+.product-card__visual--mixed {
+  background: linear-gradient(145deg, #510A50 0%, #ACCD46 52%, #EC0FD3 100%);
+}
+
+.product-card__visual--soft {
+  background: linear-gradient(145deg, #fff, #efe4ef);
+}
+
+.product-card__tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #fff;
+  background: var(--color-pink);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.product-card__body {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.product-card__sku {
+  margin: 0 0 5px;
+  color: var(--color-muted-text);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.product-card h2 {
+  min-height: 48px;
+  margin: 0;
+  color: var(--color-ink);
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+
+.product-card h2 a:hover {
+  color: var(--color-grape);
+}
+
+.product-card__price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.product-card__price span {
+  color: var(--color-muted-text);
+  text-decoration: line-through;
+}
+
+.product-card__price strong {
+  color: var(--color-grape);
+  font-size: 1.18rem;
+}
+
+.product-card .button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
