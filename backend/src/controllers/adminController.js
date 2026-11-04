@@ -202,7 +202,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
     }),
     Category.count(),
     Order.count(),
-    Order.count({ where: { status: 'aguardando_pagamento' } }),
+    Order.count({ where: { status: { [Op.in]: ['aguardando_definicao_frete', 'aguardando_confirmacao_frete', 'aguardando_pagamento'] } } }),
     Order.count({ where: todayWhere }),
     Order.count({ where: monthWhere }),
     Order.findAll({ where: { ...revenueWhere, ...todayWhere }, attributes: ['id', 'total'] }),

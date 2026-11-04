@@ -3,6 +3,7 @@ import { getDashboard, listUsers } from '../controllers/adminController.js';
 import {
   getOrder,
   listOrders,
+  setOrderFreight,
   updateOrderStatus
 } from '../controllers/orderController.js';
 import { authenticate, requireAdmin } from '../middlewares/auth.js';
@@ -16,4 +17,4 @@ adminRoutes.get('/users', listUsers);
 adminRoutes.get('/orders', listOrders);
 adminRoutes.get('/orders/:id', getOrder);
 adminRoutes.patch('/orders/:id/status', updateOrderStatus);
-
+adminRoutes.patch('/orders/:id/freight', setOrderFreight);

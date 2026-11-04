@@ -33,19 +33,16 @@
 }
 
 .admin-metric-card--money {
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--color-lime) 16%, white), #fff 64%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-lime) 16%, white), #fff 64%);
 }
 
 .admin-metric-card--alert,
 .admin-metric-card--warning {
-  background:
-    linear-gradient(135deg, #fff7df, #fff 66%);
+  background: linear-gradient(135deg, #fff7df, #fff 66%);
 }
 
 .admin-metric-card--danger {
-  background:
-    linear-gradient(135deg, #fff0f2, #fff 66%);
+  background: linear-gradient(135deg, #fff0f2, #fff 66%);
 }
 
 .admin-metric-card__bar {
@@ -449,7 +446,7 @@
   align-items: end;
 }
 
-.admin-color-group input[type="color"] {
+.admin-color-group input[type='color'] {
   min-height: 42px;
   padding: 4px;
 }
@@ -747,7 +744,7 @@
   min-height: 18px;
 }
 
-.admin-settings__color-grid input[type="color"] {
+.admin-settings__color-grid input[type='color'] {
   min-height: 42px;
   padding: 4px;
 }
@@ -796,5 +793,43 @@
   .admin-pie-card__content {
     grid-template-columns: 1fr;
     justify-items: center;
+  }
+}
+.admin-order-delivery {
+  min-width: 230px;
+  max-width: 340px;
+  display: grid;
+  gap: 8px;
+  line-height: 1.5;
+}
+.admin-order-freight {
+  display: grid;
+  gap: 8px;
+}
+.admin-order-freight input {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.admin-order-whatsapp {
+  color: var(--color-grape);
+  text-decoration: underline;
+}
+.admin-order-provisional {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-muted-text);
+}
+.admin-delivery-region {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px auto;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 520px) {
+  .admin-delivery-region {
+    grid-template-columns: 1fr;
   }
 }

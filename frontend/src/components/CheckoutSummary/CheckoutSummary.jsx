@@ -8,7 +8,8 @@ const getItemPrice = (item) => Number(
   ?? item.product.price
 );
 
-export default function CheckoutSummary({ items, subtotal }) {
+export default function CheckoutSummary({ items, subtotal, shipping }) {
+  const freightDefined = shipping?.status === 'quoted';
   return (
     <aside className="checkout-summary">
       <h2>Resumo</h2>
@@ -33,9 +34,14 @@ export default function CheckoutSummary({ items, subtotal }) {
         <strong>{formatCurrency(subtotal)}</strong>
       </div>
       <div className="checkout-summary__total">
-        <span>Total</span>
-        <strong>{formatCurrency(subtotal)}</strong>
+        <span>Frete</span>
+        <strong>{freightDefined ? shipping.amount === 0 ? 'Grátis' : formatCurrency(shipping.amount) : shipping ? 'A combinar' : 'Informe o CEP'}</strong>
       </div>
+      <div className="checkout-summary__total">
+        <span>{freightDefined ? 'Total' : 'Total dos produtos'}</span>
+        <strong>{formatCurrency(subtotal + (freightDefined ? shipping.amount : 0))}</strong>
+      </div>
+      {!freightDefined && <p className="checkout-summary__notice">O total final será confirmado após a definição do frete.</p>}
     </aside>
   );
 }

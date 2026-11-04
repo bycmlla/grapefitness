@@ -1,4 +1,5 @@
 import { SiteSetting } from '../models/index.js';
+import { normalizeLocalRegions } from './checkoutValidation.js';
 
 export const defaultSiteSettings = {
   storeName: 'Uva Moda Fitness',
@@ -18,6 +19,7 @@ export const defaultSiteSettings = {
   footerLogoUrl: '',
   lowStockThreshold: 5,
   allowOutOfStockPurchase: false,
+  localDeliveryRegions: [{ city: 'Feira de Santana', state: 'BA' }],
   whatsappNumber: '',
   whatsappDefaultMessage: 'Ola, vim pelo site da Uva Moda Fitness e gostaria de atendimento.',
   whatsappFloatingButtonEnabled: true,
@@ -47,7 +49,7 @@ const booleanFields = new Set([
   'whatsappFloatingButtonEnabled'
 ]);
 const numberFields = new Set(['lowStockThreshold']);
-const arrayFields = new Set(['dashboardIndicators']);
+const arrayFields = new Set(['dashboardIndicators', 'localDeliveryRegions']);
 
 const normalizeHexColor = (value, fallback) => {
   const color = String(value || '').trim();
@@ -79,6 +81,7 @@ const serializeValue = (key, value) => {
 };
 
 const parseValue = (key, value) => {
+  if (key === 'localDeliveryRegions') return normalizeLocalRegions(value);
   if (booleanFields.has(key)) {
     return normalizeBoolean(value);
   }

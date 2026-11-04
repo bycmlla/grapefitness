@@ -15,6 +15,7 @@ import { orderRoutes } from './routes/order.routes.js';
 import { pickupStoreRoutes } from './routes/pickupStore.routes.js';
 import { productRoutes } from './routes/product.routes.js';
 import { settingsRoutes } from './routes/settings.routes.js';
+import { shippingRoutes } from './routes/shipping.routes.js';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +50,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/pickup-stores', pickupStoreRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/shipping', shippingRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

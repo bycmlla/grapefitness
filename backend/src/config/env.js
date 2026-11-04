@@ -10,6 +10,9 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   syncDatabase: process.env.SYNC_DATABASE === 'true',
   uploadDir: process.env.UPLOAD_DIR || 'uploads',
+  shippingQuoteUrl: process.env.SHIPPING_QUOTE_URL || '',
+  shippingQuoteToken: process.env.SHIPPING_QUOTE_TOKEN || '',
+  shippingOriginZipCode: process.env.SHIPPING_ORIGIN_ZIP_CODE || '',
   adminSeedEmail: process.env.ADMIN_SEED_EMAIL || 'admin@uvamodafitness.com.br',
   adminSeedPassword: process.env.ADMIN_SEED_PASSWORD || 'admin123',
   database: {
@@ -22,4 +25,3 @@ export const env = {
 };
 
 export const isDevelopment = env.nodeEnv === 'development';
-

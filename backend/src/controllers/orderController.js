@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   Address,
   Order,
@@ -13,12 +14,20 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { createOrderNumber } from '../utils/orderNumber.js';
 import { getSiteSettings } from '../utils/siteSettings.js';
 import {
-  getVariationQuantity,
-  syncProductStockFromVariations
-} from '../utils/stock.js';
+  checkoutError,
+  freightAmount,
+  normalizeAddress,
+  normalizeCity,
+  normalizeContact,
+  orderStatuses,
+  paymentMethods
+} from '../utils/checkoutValidation.js';
+import { resolveDelivery } from '../services/shippingService.js';
+import { publicUser } from '../utils/publicUser.js';
+import { getVariationQuantity, syncProductStockFromVariations } from '../utils/stock.js';
 
 const orderInclude = [
-  { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
+  { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
   {
     model: OrderItem,
     as: 'items',
@@ -35,11 +44,26 @@ const orderInclude = [
 const getUnitPrice = (product, variation) =>
   Number(variation?.price || product.salePrice || product.price);
 
+const createPendingPayment = (order, method, transaction) =>
+  Payment.create(
+    {
+      order_id: order.id,
+      method,
+      provider: 'manual_placeholder',
+      status: 'pending',
+      total: order.total,
+      metadata: { preparedFor: ['mercado_pago', 'pagseguro', 'pagarme', 'stripe', 'asaas'] }
+    },
+    { transaction }
+  );
+
 const restoreOrderStock = async (order, transaction) => {
-  const items = order.items || (await OrderItem.findAll({
-    where: { order_id: order.id },
-    transaction
-  }));
+  const items =
+    order.items ||
+    (await OrderItem.findAll({
+      where: { order_id: order.id },
+      transaction
+    }));
   const variationProductIds = new Set();
 
   for (const item of items) {
@@ -91,21 +115,56 @@ export const createOrder = asyncHandler(async (req, res) => {
     return;
   }
 
+  if (paymentMethod === 'pickup_payment' && fulfillmentType !== 'pickup')
+    throw checkoutError('Pagamento na retirada exige retirada na loja.');
+  const contact = normalizeContact(req.body.contact, req.user);
+  const settings = await getSiteSettings();
+  let deliveryAddress = null;
+  let shipping = { mode: 'pickup', status: 'quoted', amount: 0, service: 'Retirada na loja' };
+  let ownedAddress = null;
+  if (fulfillmentType === 'delivery') {
+    if (addressId) {
+      ownedAddress = await Address.findOne({ where: { id: addressId, user_id: req.user.id } });
+      if (!ownedAddress) throw checkoutError('Endereço não encontrado.', 404);
+    }
+    deliveryAddress = normalizeAddress(ownedAddress ? ownedAddress.toJSON() : address);
+    const resolved = await resolveDelivery({
+      zipCode: deliveryAddress.zipCode,
+      items,
+      settings,
+      userId: req.user.id,
+      quoteToken: req.body.shippingQuoteToken,
+      forOrder: true
+    });
+    shipping = resolved.shipping;
+    // Uma cidade corrigida manualmente exige conferência da loja antes de definir o frete.
+    if (
+      normalizeCity(deliveryAddress.city) !== normalizeCity(resolved.address.city) ||
+      deliveryAddress.state !== resolved.address.state
+    ) {
+      shipping = { mode: 'regional', status: 'pending', amount: null, service: null };
+    }
+  }
+
   const transaction = await sequelize.transaction();
   let transactionFinished = false;
 
   try {
-    const settings = await getSiteSettings();
-    let orderAddressId = addressId || null;
-    let orderPickupStoreId = pickupStoreId || null;
+    let orderAddressId = ownedAddress?.id || null;
+    const orderPickupStoreId = fulfillmentType === 'pickup' ? pickupStoreId || null : null;
 
-    if (fulfillmentType === 'delivery' && !orderAddressId && address) {
-      const createdAddress = await Address.create({
-        ...address,
-        user_id: req.user.id
-      }, { transaction });
+    if (fulfillmentType === 'delivery' && !orderAddressId) {
+      const createdAddress = await Address.create(
+        {
+          ...deliveryAddress,
+          user_id: req.user.id
+        },
+        { transaction }
+      );
       orderAddressId = createdAddress.id;
     }
+
+    await req.user.update(contact, { transaction });
 
     if (fulfillmentType === 'pickup') {
       const pickupStore = await PickupStore.findByPk(orderPickupStoreId, { transaction });
@@ -129,14 +188,14 @@ export const createOrder = asyncHandler(async (req, res) => {
       });
       const variation = item.variationId
         ? await ProductVariation.findOne({
-          where: {
-            id: item.variationId,
-            product_id: item.productId,
-            active: true
-          },
-          transaction,
-          lock: transaction.LOCK.UPDATE
-        })
+            where: {
+              id: item.variationId,
+              product_id: item.productId,
+              active: true
+            },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+          })
         : null;
 
       if (!product || !product.active || quantity < 1 || !Number.isInteger(quantity)) {
@@ -165,7 +224,9 @@ export const createOrder = asyncHandler(async (req, res) => {
         throw error;
       }
 
-      const availableStock = variation ? getVariationQuantity(variation) : Number(product.stock || 0);
+      const availableStock = variation
+        ? getVariationQuantity(variation)
+        : Number(product.stock || 0);
 
       if (!settings.allowOutOfStockPurchase && availableStock < quantity) {
         const error = new Error(`Estoque insuficiente para ${product.name}.`);
@@ -202,21 +263,33 @@ export const createOrder = asyncHandler(async (req, res) => {
     }
 
     const discountTotal = 0;
-    const shippingTotal = fulfillmentType === 'delivery' ? 0 : 0;
+    const awaitingFreight = shipping.status === 'pending';
+    const shippingTotal = shipping.amount ?? 0;
     const total = subtotal - discountTotal + shippingTotal;
 
-    const order = await Order.create({
-      user_id: req.user.id,
-      address_id: orderAddressId,
-      pickup_store_id: orderPickupStoreId,
-      orderNumber: createOrderNumber(),
-      fulfillmentType,
-      subtotal,
-      discountTotal,
-      shippingTotal,
-      total,
-      couponCode
-    }, { transaction });
+    const order = await Order.create(
+      {
+        user_id: req.user.id,
+        address_id: orderAddressId,
+        pickup_store_id: orderPickupStoreId,
+        orderNumber: createOrderNumber(),
+        fulfillmentType,
+        status: awaitingFreight ? 'aguardando_definicao_frete' : 'aguardando_pagamento',
+        addressSnapshot: deliveryAddress,
+        contactSnapshot: contact,
+        shippingMode: shipping.mode,
+        shippingStatus: awaitingFreight ? 'pending' : 'confirmed',
+        shippingDetails: { service: shipping.service, deliveryDays: shipping.deliveryDays || null },
+        shippingConfirmedAt: awaitingFreight ? null : new Date(),
+        preferredPaymentMethod: paymentMethod,
+        subtotal,
+        discountTotal,
+        shippingTotal,
+        total,
+        couponCode
+      },
+      { transaction }
+    );
 
     await OrderItem.bulkCreate(
       orderItems.map((item) => ({
@@ -226,22 +299,13 @@ export const createOrder = asyncHandler(async (req, res) => {
       { transaction }
     );
 
-    await Payment.create({
-      order_id: order.id,
-      method: paymentMethod,
-      provider: 'manual_placeholder',
-      status: 'pending',
-      total,
-      metadata: {
-        preparedFor: ['mercado_pago', 'pagseguro', 'pagarme', 'stripe', 'asaas']
-      }
-    }, { transaction });
+    if (!awaitingFreight) await createPendingPayment(order, paymentMethod, transaction);
 
     await transaction.commit();
     transactionFinished = true;
 
     const createdOrder = await Order.findByPk(order.id, { include: orderInclude });
-    res.status(201).json({ order: createdOrder });
+    res.status(201).json({ order: createdOrder, user: publicUser(req.user) });
   } catch (error) {
     if (!transactionFinished) {
       await transaction.rollback();
@@ -309,6 +373,7 @@ export const getOrder = asyncHandler(async (req, res) => {
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
+  if (!orderStatuses.includes(req.body.status)) throw checkoutError('Status de pedido inválido.');
   const transaction = await sequelize.transaction();
   let transactionFinished = false;
 
@@ -331,6 +396,24 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 
     const previousStatus = order.status;
 
+    if (['aguardando_definicao_frete', 'aguardando_confirmacao_frete'].includes(req.body.status)) {
+      throw checkoutError('Use a definição de frete para alterar esta etapa.');
+    }
+    if (order.shippingStatus !== 'confirmed' && req.body.status !== 'cancelado') {
+      throw checkoutError(
+        'A cliente precisa confirmar o frete e o total antes de prosseguir.',
+        409
+      );
+    }
+    if (
+      ['cancelado', 'reembolsado'].includes(previousStatus) &&
+      req.body.status !== previousStatus
+    ) {
+      throw checkoutError('Este pedido já foi encerrado.', 409);
+    }
+    if (req.body.status === 'pagamento_aprovado' && !order.payment)
+      throw checkoutError('O pagamento deste pedido ainda não foi liberado.', 409);
+
     if (req.body.status === 'cancelado' && previousStatus !== 'cancelado') {
       await restoreOrderStock(order, transaction);
     }
@@ -338,10 +421,13 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     await order.update({ status: req.body.status }, { transaction });
 
     if (req.body.status === 'pagamento_aprovado' && order.payment?.status !== 'approved') {
-      await order.payment.update({
-        status: 'approved',
-        paidAt: new Date()
-      }, { transaction });
+      await order.payment.update(
+        {
+          status: 'approved',
+          paidAt: new Date()
+        },
+        { transaction }
+      );
     }
 
     await transaction.commit();
@@ -355,4 +441,79 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     }
     throw error;
   }
+});
+
+export const setOrderFreight = asyncHandler(async (req, res) => {
+  const amount = freightAmount(req.body.amount);
+  await sequelize.transaction(async (transaction) => {
+    const order = await Order.findByPk(req.params.id, {
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!order) throw checkoutError('Pedido não encontrado.', 404);
+    if (
+      order.fulfillmentType !== 'delivery' ||
+      !['aguardando_definicao_frete', 'aguardando_confirmacao_frete'].includes(order.status)
+    ) {
+      throw checkoutError('O frete só pode ser definido antes da confirmação da cliente.', 409);
+    }
+    const total = Number(
+      (Number(order.subtotal) - Number(order.discountTotal) + amount).toFixed(2)
+    );
+    await order.update(
+      {
+        shippingTotal: amount,
+        total,
+        shippingStatus: 'awaiting_confirmation',
+        status: 'aguardando_confirmacao_frete',
+        shippingConfirmedAt: null,
+        shippingDetails: {
+          ...order.shippingDetails,
+          service:
+            order.shippingDetails?.service ||
+            (order.shippingMode === 'local' ? 'Entrega local' : 'Entrega para sua região'),
+          revision: randomUUID()
+        }
+      },
+      { transaction }
+    );
+  });
+  res.json({ order: await Order.findByPk(req.params.id, { include: orderInclude }) });
+});
+
+export const confirmOrderFreight = asyncHandler(async (req, res) => {
+  await sequelize.transaction(async (transaction) => {
+    const order = await Order.findOne({
+      where: { id: req.params.id, user_id: req.user.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE
+    });
+    if (!order) throw checkoutError('Pedido não encontrado.', 404);
+    if (
+      order.status !== 'aguardando_confirmacao_frete' ||
+      order.shippingStatus !== 'awaiting_confirmation'
+    ) {
+      throw checkoutError('Este pedido não está aguardando confirmação do frete.', 409);
+    }
+    if (
+      !req.body.shippingRevision ||
+      req.body.shippingRevision !== order.shippingDetails?.revision
+    ) {
+      throw checkoutError('O frete foi atualizado. Atualize o pedido e confira o novo total.', 409);
+    }
+    const method = req.body.paymentMethod || order.preferredPaymentMethod || 'pix';
+    if (!paymentMethods.includes(method) || method === 'pickup_payment')
+      throw checkoutError('Escolha uma forma de pagamento válida para entrega.');
+    await order.update(
+      {
+        shippingStatus: 'confirmed',
+        shippingConfirmedAt: new Date(),
+        status: 'aguardando_pagamento',
+        preferredPaymentMethod: method
+      },
+      { transaction }
+    );
+    await createPendingPayment(order, method, transaction);
+  });
+  res.json({ order: await Order.findByPk(req.params.id, { include: orderInclude }) });
 });

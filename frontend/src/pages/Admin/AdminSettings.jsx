@@ -9,17 +9,16 @@ import {
 import { api, getApiMessage } from '../../services/api.js';
 import './Admin.css';
 
-const imageFields = [
-  'logo',
-  'favicon',
-  'headerLogo',
-  'footerLogo'
-];
+const imageFields = ['logo', 'favicon', 'headerLogo', 'footerLogo'];
 
-const buildInitialFiles = () => imageFields.reduce((accumulator, field) => ({
-  ...accumulator,
-  [field]: null
-}), {});
+const buildInitialFiles = () =>
+  imageFields.reduce(
+    (accumulator, field) => ({
+      ...accumulator,
+      [field]: null
+    }),
+    {}
+  );
 
 const buildPreviewUrl = (file, fallback) => (file ? URL.createObjectURL(file) : fallback);
 
@@ -72,7 +71,7 @@ export default function AdminSettings() {
     const payload = new FormData();
 
     Object.entries(form).forEach(([key, value]) => {
-      payload.append(key, Array.isArray(value) ? JSON.stringify(value) : value ?? '');
+      payload.append(key, Array.isArray(value) ? JSON.stringify(value) : (value ?? ''));
     });
 
     imageFields.forEach((field) => {
@@ -281,6 +280,79 @@ export default function AdminSettings() {
 
         <section className="admin-settings-section">
           <div className="admin-section-heading">
+            <h2>Entrega local</h2>
+          </div>
+          <p className="admin-form__wide">
+            Cidades atendidas pela entrega local. O CEP será consultado para identificar a cidade e
+            a UF. O valor da entrega será combinado com a cliente.
+          </p>
+          {(form.localDeliveryRegions || []).map((region, index) => (
+            <div className="admin-delivery-region admin-form__wide" key={index}>
+              <label>
+                Cidade
+                <input
+                  value={region.city}
+                  maxLength={120}
+                  required
+                  onChange={(event) =>
+                    updateField(
+                      'localDeliveryRegions',
+                      form.localDeliveryRegions.map((item, position) =>
+                        position === index ? { ...item, city: event.target.value } : item
+                      )
+                    )
+                  }
+                />
+              </label>
+              <label>
+                Estado (UF)
+                <input
+                  value={region.state}
+                  maxLength={2}
+                  pattern="[A-Za-z]{2}"
+                  required
+                  onChange={(event) =>
+                    updateField(
+                      'localDeliveryRegions',
+                      form.localDeliveryRegions.map((item, position) =>
+                        position === index
+                          ? { ...item, state: event.target.value.toUpperCase() }
+                          : item
+                      )
+                    )
+                  }
+                />
+              </label>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() =>
+                  updateField(
+                    'localDeliveryRegions',
+                    form.localDeliveryRegions.filter((_, position) => position !== index)
+                  )
+                }
+              >
+                Remover
+              </button>
+            </div>
+          ))}
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={() =>
+              updateField('localDeliveryRegions', [
+                ...form.localDeliveryRegions,
+                { city: '', state: '' }
+              ])
+            }
+          >
+            Adicionar cidade
+          </button>
+        </section>
+
+        <section className="admin-settings-section">
+          <div className="admin-section-heading">
             <h2>WhatsApp e atendimento</h2>
           </div>
 
@@ -307,7 +379,9 @@ export default function AdminSettings() {
               <input
                 type="checkbox"
                 checked={Boolean(form.whatsappFloatingButtonEnabled)}
-                onChange={(event) => updateField('whatsappFloatingButtonEnabled', event.target.checked)}
+                onChange={(event) =>
+                  updateField('whatsappFloatingButtonEnabled', event.target.checked)
+                }
               />
               Ativar botao flutuante do WhatsApp
             </label>

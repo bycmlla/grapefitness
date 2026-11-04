@@ -162,6 +162,8 @@ CREATE TABLE IF NOT EXISTS pedidos (
   pickup_store_id CHAR(36) NULL,
   order_number VARCHAR(40) NOT NULL UNIQUE,
   status ENUM(
+    'aguardando_definicao_frete',
+    'aguardando_confirmacao_frete',
     'aguardando_pagamento',
     'pagamento_aprovado',
     'em_separacao',
@@ -172,6 +174,13 @@ CREATE TABLE IF NOT EXISTS pedidos (
     'reembolsado'
   ) NOT NULL DEFAULT 'aguardando_pagamento',
   fulfillment_type ENUM('delivery', 'pickup') NOT NULL,
+  address_snapshot JSON NULL,
+  contact_snapshot JSON NULL,
+  shipping_mode VARCHAR(30) NULL,
+  shipping_status VARCHAR(30) NOT NULL DEFAULT 'confirmed',
+  shipping_details JSON NULL,
+  shipping_confirmed_at DATETIME NULL,
+  preferred_payment_method VARCHAR(30) NULL,
   subtotal DECIMAL(10,2) NOT NULL,
   discount_total DECIMAL(10,2) NOT NULL DEFAULT 0,
   shipping_total DECIMAL(10,2) NOT NULL DEFAULT 0,

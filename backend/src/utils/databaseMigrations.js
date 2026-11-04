@@ -1,4 +1,5 @@
 import { DataTypes } from 'sequelize';
+import { orderStatuses } from './checkoutValidation.js';
 
 const getDatabaseErrorCode = (error) => error.original?.code || error.parent?.code;
 
@@ -153,9 +154,30 @@ export const ensureSiteSettingsTable = async (sequelize) => {
   });
 };
 
+export const ensureCheckoutColumns = async (sequelize) => {
+  const queryInterface = sequelize.getQueryInterface();
+  const table = await describeTable(queryInterface, 'pedidos');
+  if (!table) return;
+  if (orderStatuses.some((status) => !table.status.type.includes(`'${status}'`))) {
+    await queryInterface.changeColumn('pedidos', 'status', {
+      type: DataTypes.ENUM(...orderStatuses), allowNull: false, defaultValue: 'aguardando_pagamento'
+    });
+  }
+  for (const [name, definition] of Object.entries({
+    address_snapshot: { type: DataTypes.JSON, allowNull: true },
+    contact_snapshot: { type: DataTypes.JSON, allowNull: true },
+    shipping_mode: { type: DataTypes.STRING(30), allowNull: true },
+    shipping_status: { type: DataTypes.STRING(30), allowNull: false, defaultValue: 'confirmed' },
+    shipping_details: { type: DataTypes.JSON, allowNull: true },
+    shipping_confirmed_at: { type: DataTypes.DATE, allowNull: true },
+    preferred_payment_method: { type: DataTypes.STRING(30), allowNull: true }
+  })) await addColumnIfMissing(queryInterface, table, 'pedidos', name, definition);
+};
+
 export const runStartupMigrations = async (sequelize) => {
   await ensureSiteSettingsTable(sequelize);
   await ensureCategoryHomeColumns(sequelize);
   await ensureVariationQuantityColumn(sequelize);
   await ensureCatalogVariationColumns(sequelize);
+  await ensureCheckoutColumns(sequelize);
 };

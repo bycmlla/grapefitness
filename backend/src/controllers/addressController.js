@@ -1,5 +1,6 @@
 import { Address } from '../models/index.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { normalizeAddress, normalizeAddressPreferences } from '../utils/checkoutValidation.js';
 
 export const listAddresses = asyncHandler(async (req, res) => {
   const addresses = await Address.findAll({
@@ -12,7 +13,8 @@ export const listAddresses = asyncHandler(async (req, res) => {
 
 export const createAddress = asyncHandler(async (req, res) => {
   const address = await Address.create({
-    ...req.body,
+    ...normalizeAddress(req.body),
+    ...normalizeAddressPreferences(req.body),
     user_id: req.user.id
   });
 
@@ -32,7 +34,10 @@ export const updateAddress = asyncHandler(async (req, res) => {
     return;
   }
 
-  await address.update(req.body);
+  await address.update({
+    ...normalizeAddress({ ...address.toJSON(), ...req.body }),
+    ...normalizeAddressPreferences(req.body)
+  });
   res.json({ address });
 });
 
@@ -52,4 +57,3 @@ export const deleteAddress = asyncHandler(async (req, res) => {
   await address.destroy();
   res.status(204).send();
 });
-

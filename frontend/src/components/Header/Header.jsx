@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 import { useCart } from '../../contexts/CartContext.jsx';
 import { useSettings } from '../../contexts/SettingsContext.jsx';
 import { api } from '../../services/api.js';
+import SessionNotice from '../SessionNotice/SessionNotice.jsx';
 import './Header.css';
 
 export default function Header() {
@@ -59,6 +60,7 @@ export default function Header() {
 
   return (
     <header className="header">
+      <SessionNotice />
       <div className="header__top">
         <div className="header__top-inner">
           <Link to="/" className="header__brand" aria-label={settings.storeName}>

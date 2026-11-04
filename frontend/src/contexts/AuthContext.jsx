@@ -1,27 +1,63 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { api, getApiMessage } from '../services/api.js';
+import {
+  clearSession,
+  dismissSessionNotice,
+  expireSession,
+  getSession,
+  persistSession,
+  subscribeSession,
+  updateSessionUser
+} from '../services/session.js';
 
 const AuthContext = createContext(null);
 
-const readStoredUser = () => {
-  try {
-    return JSON.parse(localStorage.getItem('uva_user'));
-  } catch (error) {
-    return null;
-  }
-};
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(readStoredUser);
+  const { user, token, expiresAt, sessionExpired } = useSyncExternalStore(subscribeSession, getSession);
   const [loading, setLoading] = useState(false);
 
-  const persistSession = (payload) => {
-    localStorage.setItem('uva_token', payload.token);
-    localStorage.setItem('uva_user', JSON.stringify(payload.user));
-    setUser(payload.user);
-  };
+  useEffect(() => {
+    if (!token) return;
 
-  const login = async (credentials) => {
+    let timeout;
+    const checkExpiration = () => {
+      window.clearTimeout(timeout);
+      const remaining = expiresAt - Date.now();
+
+      if (remaining <= 0) {
+        expireSession(token);
+      } else {
+        timeout = window.setTimeout(checkExpiration, Math.min(remaining, 2147483647));
+      }
+    };
+
+    checkExpiration();
+    window.addEventListener('focus', checkExpiration);
+    document.addEventListener('visibilitychange', checkExpiration);
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener('focus', checkExpiration);
+      document.removeEventListener('visibilitychange', checkExpiration);
+    };
+  }, [token, expiresAt]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    let active = true;
+
+    api.get('/auth/me')
+      .then(({ data }) => {
+        if (active && getSession().token === token) updateSessionUser(data.user);
+      })
+      // Apenas uma resposta 401 encerra a sessão; falhas de rede permitem tentar novamente.
+      .catch(() => {});
+
+    return () => { active = false; };
+  }, [token]);
+
+  const login = useCallback(async (credentials) => {
     setLoading(true);
 
     try {
@@ -33,9 +69,9 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const register = async (payload) => {
+  const register = useCallback(async (payload) => {
     setLoading(true);
 
     try {
@@ -47,23 +83,20 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('uva_token');
-    localStorage.removeItem('uva_user');
-    setUser(null);
-  };
+  }, []);
 
   const value = useMemo(() => ({
     user,
     loading,
     isAuthenticated: Boolean(user),
     isAdmin: user?.role === 'admin',
+    sessionExpired,
     login,
     register,
-    logout
-  }), [user, loading]);
+    updateUser: updateSessionUser,
+    logout: clearSession,
+    dismissSessionNotice
+  }), [user, loading, sessionExpired, login, register]);
 
   return (
     <AuthContext.Provider value={value}>
@@ -73,4 +106,3 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
-

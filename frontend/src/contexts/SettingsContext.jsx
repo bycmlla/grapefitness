@@ -19,6 +19,7 @@ export const defaultSettings = {
   footerLogoUrl: '',
   lowStockThreshold: 5,
   allowOutOfStockPurchase: false,
+  localDeliveryRegions: [{ city: 'Feira de Santana', state: 'BA' }],
   whatsappNumber: '',
   whatsappDefaultMessage: 'Ola, vim pelo site da Uva Moda Fitness e gostaria de atendimento.',
   whatsappFloatingButtonEnabled: true,

@@ -19,7 +19,7 @@ addressRoutes.post(
   [
     body('zipCode').notEmpty().withMessage('Informe o CEP.'),
     body('street').notEmpty().withMessage('Informe a rua.'),
-    body('number').notEmpty().withMessage('Informe o numero.'),
+    body('number').if((value, { req }) => req.body.noNumber !== true).notEmpty().withMessage('Informe o numero.'),
     body('district').notEmpty().withMessage('Informe o bairro.'),
     body('city').notEmpty().withMessage('Informe a cidade.'),
     body('state').isLength({ min: 2, max: 2 }).withMessage('Informe a UF.')
@@ -30,4 +30,3 @@ addressRoutes.post(
 
 addressRoutes.put('/:id', updateAddress);
 addressRoutes.delete('/:id', deleteAddress);
-
